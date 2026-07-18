@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 import './SettingsPage.css';
 
 const SettingsPage = () => {
@@ -68,7 +69,7 @@ const SettingsPage = () => {
     setMessageType('success');
 
     try {
-      const res = await fetch('http://localhost:8000/update-profile', {
+      const res = await fetch(`${API_BASE_URL}/update-profile`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

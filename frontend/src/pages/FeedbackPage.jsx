@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { API_BASE_URL } from '../services/api';
 import './FeedbackPage.css';
 
 const FeedbackPage = () => {
@@ -10,7 +11,7 @@ const FeedbackPage = () => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('careerlens_user') || '{}');
       const userId = storedUser.id || 'demo_user_123';
-      const res = await fetch(`http://localhost:8000/resumes?user_id=${userId}`);
+      const res = await fetch(`${API_BASE_URL}/resumes?user_id=${userId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) setResumes(data.resumes || []);

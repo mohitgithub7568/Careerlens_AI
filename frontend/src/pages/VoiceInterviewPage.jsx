@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../services/api';
 import './VoiceInterviewPage.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = API_BASE_URL;
 
 // Sample questions for demo (real ones come from the backend session)
 const DEMO_QUESTIONS = [

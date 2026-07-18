@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../services/api';
 import './ResumesPage.css';
 
 const ResumesPage = () => {
@@ -13,7 +14,7 @@ const ResumesPage = () => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('careerlens_user') || '{}');
       const userId = storedUser.id || 'demo_user_123';
-      const res = await fetch(`http://localhost:8000/resumes?user_id=${userId}`);
+      const res = await fetch(`${API_BASE_URL}/resumes?user_id=${userId}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) {
@@ -46,7 +47,7 @@ const ResumesPage = () => {
     formData.append('user_id', storedUser.id || 'demo_user_123');
 
     try {
-      const response = await fetch('http://localhost:8000/upload-resume', {
+      const response = await fetch(`${API_BASE_URL}/upload-resume`, {
         method: 'POST',
         body: formData,
       });

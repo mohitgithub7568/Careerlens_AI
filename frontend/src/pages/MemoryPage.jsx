@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
+import { API_BASE_URL } from '../services/api';
 import './MemoryPage.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = API_BASE_URL;
 
 export default function MemoryPage() {
   const [memories, setMemories] = useState([]);

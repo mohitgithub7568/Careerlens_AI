@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { API_BASE_URL } from '../services/api';
 import './DashboardPage.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = API_BASE_URL;
 
 const DashboardPage = () => {
   const navigate = useNavigate();
@@ -58,7 +59,7 @@ const DashboardPage = () => {
       setUserName(storedUser.name || 'User');
       
       try {
-        const res = await fetch(`http://localhost:8000/dashboard-data?user_id=${userId}`);
+        const res = await fetch(`${API_BASE}/dashboard-data?user_id=${userId}`);
         if (res.ok) {
           const data = await res.json();
           if (data.success) {
@@ -67,7 +68,7 @@ const DashboardPage = () => {
         }
 
         // Fetch user's latest resume to get the session ID
-        const resumeRes = await fetch(`http://localhost:8000/resumes?user_id=${userId}`);
+        const resumeRes = await fetch(`${API_BASE}/resumes?user_id=${userId}`);
         if (resumeRes.ok) {
           const resumeData = await resumeRes.json();
           if (resumeData.success && resumeData.resumes && resumeData.resumes.length > 0) {
@@ -83,7 +84,7 @@ const DashboardPage = () => {
 
         // Fetch score progression for the chart
         try {
-          const scoreRes = await fetch(`http://localhost:8000/score-progression?user_id=${userId}`);
+          const scoreRes = await fetch(`${API_BASE}/score-progression?user_id=${userId}`);
           if (scoreRes.ok) {
             const scoreJson = await scoreRes.json();
             if (scoreJson.success && scoreJson.points) {
@@ -108,7 +109,7 @@ const DashboardPage = () => {
     setDetailLoading(true);
     setInterviewDetail(null);
     try {
-      const res = await fetch(`http://localhost:8000/interview/${id}`);
+      const res = await fetch(`${API_BASE}/interview/${id}`);
       if (res.ok) {
         const data = await res.json();
         setInterviewDetail(data);

@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { API_BASE_URL } from '../services/api';
 import './JobsPage.css';
 
-const API_BASE = 'http://localhost:8000';
+const API_BASE = API_BASE_URL;
 
 const DIFFICULTY_CONFIG = {
   Easy: { color: '#10b981', bg: 'rgba(16,185,129,0.12)', label: 'Easy Apply' },

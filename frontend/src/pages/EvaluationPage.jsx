@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { API_BASE_URL } from '../services/api';
 import './EvaluationPage.css';
 
 const EvaluationPage = () => {
@@ -12,7 +13,7 @@ const EvaluationPage = () => {
     try {
       const storedUser = JSON.parse(localStorage.getItem('careerlens_user') || '{}');
       const uid = storedUser.id || 'demo_user_123';
-      const res = await fetch(`http://localhost:8000/interviews?user_id=${uid}`);
+      const res = await fetch(`${API_BASE_URL}/interviews?user_id=${uid}`);
       if (res.ok) {
         const data = await res.json();
         if (data.success) setInterviews(data.interviews || []);
