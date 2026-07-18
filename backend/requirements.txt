@@ -10,8 +10,7 @@ bcrypt==4.1.2
 langgraph==0.6.7
 langchain-core==0.3.72
 langsmith==0.4.27
-chromadb==0.5.23
-sentence-transformers==3.3.1
+# chromadb and sentence-transformers removed — RAG now uses HF Inference API (zero local RAM)
 duckduckgo-search==6.3.7
 mcp==1.2.0
 openai-whisper
