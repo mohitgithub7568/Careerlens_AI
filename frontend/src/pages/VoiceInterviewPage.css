@@ -1,0 +1,470 @@
+/* VoiceInterviewPage.css — Premium dark glassmorphism voice interview UI */
+
+.vi-container {
+  min-height: 100vh;
+  background: linear-gradient(135deg, #0f0c29 0%, #1a1a2e 40%, #16213e 100%);
+  padding: 2rem 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  font-family: 'Inter', system-ui, sans-serif;
+}
+
+/* ─── Header ──────────────────────────────────── */
+.vi-header {
+  text-align: center;
+  width: 100%;
+  max-width: 700px;
+}
+
+.vi-title {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6c63ff, #48cfad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0 0 0.4rem;
+}
+
+.vi-subtitle {
+  color: #8892b0;
+  font-size: 0.95rem;
+  margin: 0 0 1.2rem;
+}
+
+.vi-progress-bar {
+  height: 6px;
+  background: rgba(255,255,255,0.08);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 0.4rem;
+}
+
+.vi-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #6c63ff, #48cfad);
+  border-radius: 3px;
+  transition: width 0.5s ease;
+}
+
+.vi-progress-label {
+  font-size: 0.8rem;
+  color: #6c63ff;
+  font-weight: 600;
+}
+
+/* ─── Question Card ───────────────────────────── */
+.vi-question-card {
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(108,99,255,0.25);
+  border-radius: 20px;
+  padding: 2rem;
+  width: 100%;
+  max-width: 700px;
+  position: relative;
+  transition: border-color 0.3s;
+}
+
+.vi-question-card.vi-speaking {
+  border-color: rgba(72,207,173,0.5);
+  box-shadow: 0 0 30px rgba(72,207,173,0.1);
+}
+
+.vi-question-badge {
+  position: absolute;
+  top: -14px;
+  left: 2rem;
+  background: linear-gradient(135deg, #6c63ff, #48cfad);
+  color: white;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  letter-spacing: 0.05em;
+}
+
+.vi-question-text {
+  color: #e2e8f0;
+  font-size: 1.15rem;
+  line-height: 1.65;
+  margin: 0 0 1.2rem;
+  font-weight: 500;
+}
+
+.vi-speak-btn {
+  background: rgba(72,207,173,0.1);
+  border: 1px solid rgba(72,207,173,0.3);
+  color: #48cfad;
+  padding: 0.45rem 1.1rem;
+  border-radius: 10px;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.vi-speak-btn:hover:not(:disabled) {
+  background: rgba(72,207,173,0.2);
+  transform: scale(1.02);
+}
+
+.vi-speak-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* ─── Microphone Section ──────────────────────── */
+.vi-mic-section {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.2rem;
+  width: 100%;
+  max-width: 700px;
+}
+
+/* Waveform */
+.vi-waveform {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  height: 60px;
+  padding: 0 1rem;
+}
+
+.vi-bar {
+  width: 5px;
+  background: rgba(108,99,255,0.3);
+  border-radius: 3px;
+  transition: height 0.1s ease;
+}
+
+.vi-waveform-active .vi-bar {
+  background: linear-gradient(to top, #6c63ff, #48cfad);
+  animation: waveform-pulse 0.6s ease-in-out infinite alternate;
+}
+
+@keyframes waveform-pulse {
+  from { opacity: 0.5; }
+  to   { opacity: 1; }
+}
+
+/* Mic button */
+.vi-mic-btn-wrap {
+  position: relative;
+}
+
+.vi-mic-btn-wrap.vi-recording::before {
+  content: '';
+  position: absolute;
+  inset: -12px;
+  border-radius: 50%;
+  background: rgba(255, 80, 80, 0.15);
+  animation: mic-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes mic-pulse {
+  0%,100% { transform: scale(1); opacity: 0.6; }
+  50%      { transform: scale(1.15); opacity: 0; }
+}
+
+.vi-mic-btn {
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  transition: all 0.2s;
+  font-weight: 600;
+  position: relative;
+}
+
+.vi-mic-start {
+  background: linear-gradient(135deg, #6c63ff, #48cfad);
+  box-shadow: 0 8px 30px rgba(108,99,255,0.4);
+  color: white;
+}
+
+.vi-mic-start:hover:not(:disabled) {
+  transform: scale(1.05);
+  box-shadow: 0 12px 40px rgba(108,99,255,0.5);
+}
+
+.vi-mic-stop {
+  background: linear-gradient(135deg, #ff4757, #ff6b81);
+  box-shadow: 0 8px 30px rgba(255,71,87,0.4);
+  color: white;
+}
+
+.vi-mic-stop:hover {
+  transform: scale(1.05);
+}
+
+.vi-mic-icon {
+  font-size: 1.8rem;
+  line-height: 1;
+}
+
+.vi-mic-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.03em;
+}
+
+.vi-mic-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* Processing */
+.vi-processing {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  color: #8892b0;
+  font-size: 0.9rem;
+}
+
+.vi-spinner {
+  width: 40px;
+  height: 40px;
+  border: 3px solid rgba(108,99,255,0.2);
+  border-top-color: #6c63ff;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.vi-phase-label {
+  color: #8892b0;
+  font-size: 0.85rem;
+  text-align: center;
+  margin: 0;
+}
+
+.vi-error {
+  color: #ff6b6b;
+  font-size: 0.85rem;
+  text-align: center;
+  background: rgba(255,107,107,0.1);
+  border: 1px solid rgba(255,107,107,0.2);
+  border-radius: 8px;
+  padding: 0.5rem 1rem;
+}
+
+/* ─── Transcript Card ─────────────────────────── */
+.vi-transcript-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 16px;
+  padding: 1.5rem;
+  width: 100%;
+  max-width: 700px;
+}
+
+.vi-section-label {
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: #6c63ff;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 0.8rem;
+}
+
+.vi-transcript-text {
+  color: #ccd6f6;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+  font-style: italic;
+}
+
+/* ─── Feedback Card ───────────────────────────── */
+.vi-feedback-card {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(108,99,255,0.2);
+  border-radius: 20px;
+  padding: 1.8rem;
+  width: 100%;
+  max-width: 700px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.vi-feedback-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.vi-score-badge {
+  font-size: 1.2rem;
+  font-weight: 800;
+  padding: 0.3rem 0.9rem;
+  border-radius: 12px;
+}
+
+.vi-score-high { background: rgba(72,207,173,0.15); color: #48cfad; }
+.vi-score-mid  { background: rgba(255,193,7,0.15);   color: #ffc107; }
+.vi-score-low  { background: rgba(255,107,107,0.15); color: #ff6b6b; }
+
+.vi-feedback-text {
+  color: #a8b2d8;
+  font-size: 0.95rem;
+  line-height: 1.6;
+  margin: 0;
+}
+
+.vi-missed {
+  background: rgba(255,193,7,0.07);
+  border: 1px solid rgba(255,193,7,0.15);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.vi-missed-label {
+  color: #ffc107;
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.vi-missed-text {
+  color: #ccd6f6;
+  font-size: 0.9rem;
+}
+
+/* ─── Primary Button ──────────────────────────── */
+.vi-btn-primary {
+  background: linear-gradient(135deg, #6c63ff, #48cfad);
+  color: white;
+  border: none;
+  padding: 0.85rem 2rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.25s;
+  align-self: flex-end;
+  letter-spacing: 0.02em;
+}
+
+.vi-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(108,99,255,0.4);
+}
+
+/* ─── Complete Screen ─────────────────────────── */
+.vi-complete-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1.5rem;
+  background: rgba(255,255,255,0.04);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(108,99,255,0.2);
+  border-radius: 28px;
+  padding: 3rem 2rem;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+}
+
+.vi-complete-icon { font-size: 4rem; }
+
+.vi-complete-title {
+  font-size: 2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #6c63ff, #48cfad);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin: 0;
+}
+
+.vi-score-ring {
+  position: relative;
+  width: 140px;
+  height: 140px;
+}
+
+.vi-ring-svg { width: 100%; height: 100%; }
+
+.vi-ring-label {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+}
+
+.vi-ring-score {
+  font-size: 2.5rem;
+  font-weight: 800;
+  color: #e2e8f0;
+  line-height: 1;
+}
+
+.vi-ring-unit {
+  font-size: 0.75rem;
+  color: #8892b0;
+}
+
+.vi-complete-subtitle {
+  color: #8892b0;
+  font-size: 0.9rem;
+  margin: 0;
+}
+
+/* ─── Session Log ─────────────────────────────── */
+.vi-session-log {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  text-align: left;
+}
+
+.vi-session-log h3 {
+  color: #ccd6f6;
+  font-size: 1rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
+}
+
+.vi-log-entry {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px;
+  padding: 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.vi-log-q   { color: #a8b2d8; font-size: 0.8rem; font-weight: 600; }
+.vi-log-score { color: #48cfad; font-size: 0.8rem; font-weight: 700; }
+.vi-log-fb  { color: #8892b0; font-size: 0.8rem; }
+
+/* ─── Responsive ──────────────────────────────── */
+@media (max-width: 600px) {
+  .vi-title { font-size: 1.6rem; }
+  .vi-question-text { font-size: 1rem; }
+  .vi-mic-btn { width: 90px; height: 90px; }
+}
