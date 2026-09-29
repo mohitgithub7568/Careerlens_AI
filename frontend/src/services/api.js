@@ -26,7 +26,7 @@ const apiRequest = async (endpoint, options = {}) => {
   if (!response.ok) {
     throw {
       status: response.status,
-      message: data.message || 'Something went wrong',
+      message: data.detail || data.message || 'Something went wrong',
       errors: data.errors || [],
     };
   }

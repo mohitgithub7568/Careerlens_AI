@@ -8,12 +8,18 @@ const DashboardLayout = () => {
   const navigate = useNavigate();
 
   const [theme, setTheme] = useState(() => localStorage.getItem('careerlens_theme') || 'dark');
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   useEffect(() => {
     const t = theme === 'light' ? 'light' : 'dark';
     document.documentElement.setAttribute('data-theme', t);
     localStorage.setItem('careerlens_theme', t);
   }, [theme]);
+
+  // Close sidebar on route change (mobile)
+  useEffect(() => {
+    setSidebarOpen(false);
+  }, [location.pathname]);
 
   const handleLogout = () => {
     logoutUser();
@@ -82,90 +88,122 @@ const DashboardLayout = () => {
     )}
   ]), []);
 
+  // Determine the current page title from navLinks
+  const currentPageTitle = useMemo(() => {
+    const match = navLinks.find((link) => location.pathname === link.path);
+    return match ? match.name : 'Dashboard';
+  }, [navLinks, location.pathname]);
+
+  // Check if a nav link is active — exact match for most, startsWith for nested routes
+  const isLinkActive = (linkPath) => {
+    return location.pathname === linkPath;
+  };
+
   return (
     <div className="dashboard-layout">
-      {/* Top Navbar */}
+      {/* Top Navbar — Slim header bar (no duplicate nav links) */}
       <nav className="dashboard-navbar">
         <div className="dashboard-navbar__left">
-          <Link to="/" className="dashboard-navbar__logo">
+          {/* Mobile hamburger toggle */}
+          <button
+            className="hamburger-btn"
+            onClick={() => setSidebarOpen((prev) => !prev)}
+            aria-label="Toggle navigation menu"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              {sidebarOpen ? (
+                <>
+                  <line x1="18" y1="6" x2="6" y2="18"></line>
+                  <line x1="6" y1="6" x2="18" y2="18"></line>
+                </>
+              ) : (
+                <>
+                  <line x1="3" y1="6" x2="21" y2="6"></line>
+                  <line x1="3" y1="12" x2="21" y2="12"></line>
+                  <line x1="3" y1="18" x2="21" y2="18"></line>
+                </>
+              )}
+            </svg>
+          </button>
+
+          <Link to="/dashboard" className="dashboard-navbar__logo">
             <span className="logo-icon">C</span>
             <span className="text-gradient">CareerLens</span> AI
           </Link>
         </div>
-        
+
+        {/* Current page title (visible on desktop) */}
         <div className="dashboard-navbar__center">
-          {navLinks.map((link) => (
-            <Link 
-              key={link.name} 
-              to={link.path}
-              className={`navbar-link ${location.pathname.includes(link.path) ? 'active' : ''}`}
-            >
-              {link.name}
-            </Link>
-          ))}
+          <span className="current-page-title">{currentPageTitle}</span>
         </div>
 
         <div className="dashboard-navbar__right">
-          <div className="user-profile-icon">
+          <button
+            type="button"
+            className="theme-toggle-btn"
+            onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
+            aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+            title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          >
+            {theme === 'dark' ? (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <circle cx="12" cy="12" r="4"></circle>
+                <path d="M12 2v2"></path>
+                <path d="M12 20v2"></path>
+                <path d="M4.93 4.93l1.41 1.41"></path>
+                <path d="M17.66 17.66l1.41 1.41"></path>
+                <path d="M2 12h2"></path>
+                <path d="M20 12h2"></path>
+                <path d="M4.93 19.07l1.41-1.41"></path>
+                <path d="M17.66 6.34l1.41-1.41"></path>
+              </svg>
+            ) : (
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
+              </svg>
+            )}
+          </button>
+
+          <Link to="/settings" className="user-profile-icon" title="Profile & Settings">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
               <circle cx="12" cy="7" r="4"></circle>
             </svg>
-          </div>
-          <button onClick={handleLogout} className="logout-btn" style={{ background: 'none', border: 'none', cursor: 'pointer' }}>
+          </Link>
+
+          <button onClick={handleLogout} className="logout-btn" title="Logout">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path>
               <polyline points="16 17 21 12 16 7"></polyline>
               <line x1="21" y1="12" x2="9" y2="12"></line>
             </svg>
-            <span className="ml-2">Logout</span>
           </button>
         </div>
       </nav>
 
+      {/* Mobile overlay backdrop */}
+      {sidebarOpen && (
+        <div
+          className="sidebar-overlay"
+          onClick={() => setSidebarOpen(false)}
+          aria-hidden="true"
+        />
+      )}
+
       <div className="dashboard-body">
-        {/* Sidebar */}
-        <aside className="dashboard-sidebar">
+        {/* Sidebar — the ONLY navigation source */}
+        <aside className={`dashboard-sidebar ${sidebarOpen ? 'sidebar--open' : ''}`}>
           <nav className="sidebar-nav">
             {navLinks.map((link) => (
-              <Link 
-                key={link.name} 
+              <Link
+                key={link.name}
                 to={link.path}
-                className={`sidebar-link ${location.pathname.includes(link.path) ? 'active' : ''}`}
+                className={`sidebar-link ${isLinkActive(link.path) ? 'active' : ''}`}
               >
                 <span className="sidebar-icon">{link.icon}</span>
                 <span className="sidebar-text">{link.name}</span>
               </Link>
             ))}
-
-            <button
-              type="button"
-              className="sidebar-link sidebar-link--theme"
-              onClick={() => setTheme((t) => (t === 'dark' ? 'light' : 'dark'))}
-              aria-label="Toggle theme"
-              title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
-            >
-              <span className="sidebar-icon" aria-hidden="true">
-                {theme === 'dark' ? (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="12" cy="12" r="4"></circle>
-                    <path d="M12 2v2"></path>
-                    <path d="M12 20v2"></path>
-                    <path d="M4.93 4.93l1.41 1.41"></path>
-                    <path d="M17.66 17.66l1.41 1.41"></path>
-                    <path d="M2 12h2"></path>
-                    <path d="M20 12h2"></path>
-                    <path d="M4.93 19.07l1.41-1.41"></path>
-                    <path d="M17.66 6.34l1.41-1.41"></path>
-                  </svg>
-                ) : (
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
-                  </svg>
-                )}
-              </span>
-              <span className="sidebar-text">{theme === 'dark' ? 'Light mode' : 'Dark mode'}</span>
-            </button>
 
             <button
               type="button"
