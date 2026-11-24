@@ -53,7 +53,8 @@ const SignupPage = () => {
     try {
       await signupUser(form.name, form.email, form.password, form.confirmPassword);
       setSuccess(true);
-      setTimeout(() => navigate('/login'), 2000);
+      // signupUser already stored the token, so the user is signed in.
+      setTimeout(() => navigate('/dashboard'), 1200);
     } catch (err) {
       if (err.errors && err.errors.length > 0) {
         setApiError(err.errors.join(', '));
@@ -90,7 +91,7 @@ const SignupPage = () => {
               <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
               <polyline points="22 4 12 14.01 9 11.01"></polyline>
             </svg>
-            Account created! A welcome email has been sent. Redirecting to login...
+            Account created! Taking you to your dashboard...
           </div>
         )}
 
