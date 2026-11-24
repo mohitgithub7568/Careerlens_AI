@@ -75,8 +75,14 @@ def generate_text(prompt: str) -> str:
     payload = {
         "model": model,
         "messages": [{"role": "user", "content": prompt}],
-        "max_tokens": 2048,
+        "max_tokens": int(os.environ.get("LLM_MAX_TOKENS", "2048")),
     }
+    # gpt-oss models spend hidden "reasoning" tokens before answering. "low" roughly
+    # halves token usage with the same JSON output, which matters on Groq's free
+    # tier (8K tokens/minute per model).
+    reasoning_effort = os.environ.get("LLM_REASONING_EFFORT", "low").strip()
+    if reasoning_effort and api_url == GROQ_CHAT_URL and "gpt-oss" in model:
+        payload["reasoning_effort"] = reasoning_effort
 
     max_retries = 5
     base_delay = 2.0
