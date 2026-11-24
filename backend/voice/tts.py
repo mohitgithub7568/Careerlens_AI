@@ -28,7 +28,7 @@ def synthesize_speech_hf(text: str) -> bytes:
     if not api_token:
         raise ValueError("HUGGINGFACEHUB_API_TOKEN not set for TTS.")
 
-    url = f"https://api-inference.huggingface.co/models/{TTS_MODEL}"
+    url = f"https://router.huggingface.co/hf-inference/models/{TTS_MODEL}"
     headers = {
         "Authorization": f"Bearer {api_token}",
         "Content-Type": "application/json"

@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import './InterviewsPage.css';
 import { speakText, cancelSpeech } from '../utils/speech';
-import { API_BASE_URL } from '../services/api';
+import { API_BASE_URL, readErrorMessage } from '../services/api';
 
 const InterviewsPage = () => {
   const location = useLocation();
@@ -62,7 +62,17 @@ const InterviewsPage = () => {
     }
   }, []);
 
-  // Initialize SpeechRecognition once (best-effort).
+  // Live speech-to-text via the browser's SpeechRecognition (Chrome / Edge / Safari).
+  const wantListeningRef = useRef(false);
+  const committedRef = useRef(''); // answer text before this listening session started
+
+  const MIC_ERRORS = {
+    'not-allowed': 'Microphone access was blocked. Allow the microphone in your browser settings and try again.',
+    'service-not-allowed': 'Microphone access was blocked. Allow the microphone in your browser settings and try again.',
+    'audio-capture': 'No microphone was found. Please connect a microphone and try again.',
+    network: 'Voice input needs an internet connection. Please check your connection and try again.',
+  };
+
   useEffect(() => {
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
@@ -73,60 +83,112 @@ const InterviewsPage = () => {
     const rec = new SpeechRecognition();
     rec.lang = 'en-US';
     rec.interimResults = true;
-    rec.continuous = false;
+    rec.continuous = true;
+
+    // Text finalised in earlier runs of this listening session (Chrome stops after pauses).
+    let runCommitted = '';
+
+    rec.onstart = () => {
+      runCommitted = '';
+    };
 
     rec.onresult = (event) => {
       let finalText = '';
       let interimText = '';
-      for (let i = event.resultIndex; i < event.results.length; i += 1) {
+      for (let i = 0; i < event.results.length; i += 1) {
         const t = event.results[i][0]?.transcript || '';
-        if (event.results[i].isFinal) finalText += t;
+        if (event.results[i].isFinal) finalText += `${t} `;
         else interimText += t;
       }
       setInterimTranscript(interimText.trim());
-      if (finalText.trim()) {
-        setAnswer((prev) => (prev ? `${prev.trim()} ${finalText.trim()}` : finalText.trim()));
-      }
+      const spoken = `${runCommitted} ${finalText}`.trim();
+      const base = committedRef.current.trim();
+      setAnswer(spoken ? (base ? `${base} ${spoken}` : spoken) : base);
+      rec._lastSpoken = spoken;
     };
 
-    rec.onerror = () => {
+    rec.onerror = (event) => {
+      if (event.error === 'no-speech' || event.error === 'aborted') return;
+      wantListeningRef.current = false;
       setIsListening(false);
+      setInterimTranscript('');
+      setError(MIC_ERRORS[event.error] || `Voice input error: ${event.error}`);
     };
 
     rec.onend = () => {
+      if (wantListeningRef.current) {
+        // Keep listening until the user presses stop: fold what we heard into the base text.
+        const spoken = rec._lastSpoken || '';
+        if (spoken) {
+          const base = committedRef.current.trim();
+          committedRef.current = base ? `${base} ${spoken}` : spoken;
+        }
+        rec._lastSpoken = '';
+        try {
+          rec.start();
+          return;
+        } catch {
+          // fall through to stopped state
+        }
+      }
+      wantListeningRef.current = false;
       setIsListening(false);
       setInterimTranscript('');
     };
 
     recognitionRef.current = rec;
     return () => {
+      wantListeningRef.current = false;
       try {
         rec.onresult = null;
         rec.onerror = null;
         rec.onend = null;
-        rec.stop();
+        rec.abort();
       } catch {
         // ignore
       }
+      cancelSpeech();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const stopListening = () => {
+    wantListeningRef.current = false;
+    setIsListening(false);
+    setInterimTranscript('');
+    try {
+      recognitionRef.current?.stop();
+    } catch {
+      // ignore
+    }
+  };
 
   const toggleListening = () => {
     const rec = recognitionRef.current;
     if (!rec) return;
+    if (isListening) {
+      stopListening();
+      return;
+    }
+    setError('');
+    setInterimTranscript('');
+    cancelSpeech(); // don't let the mic pick up the question being read aloud
+    committedRef.current = answer;
+    rec._lastSpoken = '';
+    wantListeningRef.current = true;
     try {
-      if (isListening) {
-        rec.stop();
-        setIsListening(false);
-        setInterimTranscript('');
-      } else {
-        setError('');
-        setInterimTranscript('');
-        rec.start();
-        setIsListening(true);
-      }
+      rec.start();
+      setIsListening(true);
     } catch {
+      // Already started — restart cleanly.
+      try {
+        rec.abort();
+      } catch {
+        // ignore
+      }
+      wantListeningRef.current = false;
       setIsListening(false);
+      setError('Could not start voice input. Please try again.');
     }
   };
 
@@ -134,6 +196,7 @@ const InterviewsPage = () => {
   useEffect(() => {
     if (interviewState !== 'interviewing') return;
     if (!currentQuestion) return;
+    if (wantListeningRef.current) return;
     speakText(currentQuestion);
   }, [currentQuestion, interviewState]);
 
@@ -155,8 +218,8 @@ const InterviewsPage = () => {
           num_questions: Number(numQuestions),
         })
       });
+      if (!res.ok) throw new Error(await readErrorMessage(res, 'Failed to start interview'));
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to start interview');
       
       setSessionId(data.session_id);
       setCurrentQuestion(data.question);
@@ -186,8 +249,8 @@ const InterviewsPage = () => {
           num_questions: Number(numQuestions),
         })
       });
+      if (!res.ok) throw new Error(await readErrorMessage(res, 'Failed to start interview'));
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to start interview');
       
       navigate('/voice-interview', {
         state: {
@@ -208,23 +271,15 @@ const InterviewsPage = () => {
     setLoading(true);
     setError('');
     cancelSpeech();
-    try {
-      if (recognitionRef.current && isListening) {
-        recognitionRef.current.stop();
-        setIsListening(false);
-        setInterimTranscript('');
-      }
-    } catch {
-      // ignore
-    }
+    if (isListening) stopListening();
     try {
       const res = await fetch(`${API_BASE_URL}/previous-question`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId }),
       });
+      if (!res.ok) throw new Error(await readErrorMessage(res, 'Could not go to previous question'));
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Could not go to previous question');
       setCurrentQuestion(data.question);
       setQuestionCount(data.question_number);
       setTotalQuestions(data.total_questions);
@@ -237,6 +292,8 @@ const InterviewsPage = () => {
   };
 
   const submitAnswer = async (skip = false) => {
+    if (isListening) stopListening();
+    cancelSpeech();
     setLoading(true);
     setError('');
     try {
@@ -245,8 +302,8 @@ const InterviewsPage = () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ session_id: sessionId, answer: skip ? '' : answer })
       });
+      if (!res.ok) throw new Error(await readErrorMessage(res, 'Failed to submit answer'));
       const data = await res.json();
-      if (!res.ok) throw new Error(data.detail || 'Failed to submit answer');
       
       if (data.message === 'Interview completed') {
          await fetchFeedback();
@@ -267,8 +324,8 @@ const InterviewsPage = () => {
     setInterviewState('feedback');
     try {
        const res = await fetch(`${API_BASE_URL}/get-feedback?session_id=${sessionId}`);
+       if (!res.ok) throw new Error(await readErrorMessage(res, 'Failed to get feedback'));
        const data = await res.json();
-       if (!res.ok) throw new Error(data.detail || "Failed to get feedback");
        setFeedbackData(data);
     } catch(err) {
        setError(err.message);
@@ -645,7 +702,10 @@ const InterviewsPage = () => {
               <button
                 type="button"
                 className="question-box__listen"
-                onClick={() => speakText(currentQuestion)}
+                onClick={() => {
+                  if (isListening) stopListening();
+                  speakText(currentQuestion);
+                }}
                 disabled={!canSpeak || !currentQuestion}
                 title="Read question aloud"
               >
@@ -680,7 +740,10 @@ const InterviewsPage = () => {
               rows="10"
               placeholder="Type your response here... or use the voice button to speak" 
               value={answer}
-              onChange={(e) => setAnswer(e.target.value)}
+              onChange={(e) => {
+                if (isListening) stopListening(); // typing takes over from voice input
+                setAnswer(e.target.value);
+              }}
               style={{ marginBottom: '1.5rem', resize: 'vertical' }}
             />
             <div className="interview-actions-row">

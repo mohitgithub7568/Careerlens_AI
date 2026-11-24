@@ -9,7 +9,8 @@ from datetime import datetime
 # Allow imports from the backend root
 sys.path.append(str(Path(__file__).resolve().parent.parent))
 
-from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException, BackgroundTasks, Request
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from pymongo import MongoClient
@@ -182,6 +183,28 @@ def _get_session(session_id: str) -> dict:
         return sessions[session_id]
 
     raise HTTPException(status_code=404, detail=f"Session '{session_id}' not found.")
+
+
+app.state.get_session = _get_session
+
+
+@app.exception_handler(Exception)
+def _unhandled_exception(request: Request, exc: Exception):
+    """
+    Always answer with JSON instead of a bare 500 page. Starlette runs this handler
+    outside CORSMiddleware, so add the CORS header here or the browser hides the error.
+    """
+    from models.llm import LLMUnavailableError
+
+    logger.exception(f"Unhandled error on {request.url.path}: {exc}")
+    headers = {"Access-Control-Allow-Origin": request.headers.get("origin", "*"), "Vary": "Origin"}
+    if isinstance(exc, LLMUnavailableError):
+        return JSONResponse(
+            status_code=503,
+            content={"detail": "AI service is unavailable right now (provider quota or API key issue). Please try again later."},
+            headers=headers,
+        )
+    return JSONResponse(status_code=500, content={"detail": f"Internal server error: {str(exc)[:200]}"}, headers=headers)
 
 
 
@@ -458,7 +481,7 @@ def send_welcome_email(to_email: str, user_name: str) -> tuple[bool, str]:
 # ──────────────────────────────────────────────
 
 @app.post("/auth/login")
-async def login(req: LoginRequest):
+def login(req: LoginRequest):
     """
     Authenticate user against MongoDB users collection.
     """
@@ -501,7 +524,7 @@ async def login(req: LoginRequest):
 # ──────────────────────────────────────────────
 
 @app.post("/auth/signup")
-async def signup(req: SignupRequest):
+def signup(req: SignupRequest, background_tasks: BackgroundTasks):
     """
     Create a new user in MongoDB users collection.
     """
@@ -539,21 +562,23 @@ async def signup(req: SignupRequest):
         "email": req.email.strip().lower()
     }
     
-    email_sent, email_status = send_welcome_email(
-        to_email=req.email.strip().lower(),
-        user_name=req.name.strip(),
+    # Send the welcome email after responding, so a slow/blocked SMTP server
+    # (Render's free tier blocks outbound SMTP) never delays or breaks signup.
+    background_tasks.add_task(
+        send_welcome_email,
+        req.email.strip().lower(),
+        req.name.strip(),
     )
 
     token = f"token_{user_id}"
-    
+
     return {
         "success": True,
         "data": {
             "user": user_data,
             "token": token,
-            "welcomeEmailSent": email_sent,
         },
-        "message": "Signup successful" if email_sent else f"Signup successful (email status: {email_status})"
+        "message": "Signup successful"
     }
 
 
@@ -562,7 +587,7 @@ async def signup(req: SignupRequest):
 # ──────────────────────────────────────────────
 
 @app.post("/update-profile")
-async def update_profile(req: UpdateProfileRequest):
+def update_profile(req: UpdateProfileRequest):
     """
     Updates user details safely in MongoDB users collection
     """
@@ -613,7 +638,7 @@ async def update_profile(req: UpdateProfileRequest):
 # ──────────────────────────────────────────────
 
 @app.post("/upload-resume")
-async def upload_resume(file: UploadFile = File(...), user_id: str = Form("demo_user_123")):
+def upload_resume(file: UploadFile = File(...), user_id: str = Form("demo_user_123")):
     """
     Accepts a PDF resume, runs Resume Analyzer + ATS Optimizer,
     and returns the results along with a session_id for future calls.
@@ -705,7 +730,7 @@ async def upload_resume(file: UploadFile = File(...), user_id: str = Form("demo_
 # ──────────────────────────────────────────────
 
 @app.get("/resumes")
-async def get_resumes(user_id: str):
+def get_resumes(user_id: str):
     """
     Fetches all resumes for a specific user from MongoDB.
     """
@@ -732,7 +757,7 @@ async def get_resumes(user_id: str):
 from bson.objectid import ObjectId
 
 @app.post("/start-interview")
-async def start_interview(req: StartInterviewRequest):
+def start_interview(req: StartInterviewRequest):
     """
     Generates interview questions based on resume + target role.
     Stores Interview in MongoDB.
@@ -870,6 +895,7 @@ async def start_interview(req: StartInterviewRequest):
         "total_questions": len(questions),
         "question_number": 1,
         "question": questions[0],
+        "questions": questions,
     }
 
 
@@ -878,7 +904,7 @@ async def start_interview(req: StartInterviewRequest):
 # ──────────────────────────────────────────────
 
 @app.post("/answer-question")
-async def answer_question(req: AnswerRequest):
+def answer_question(req: AnswerRequest):
     """
     Accepts an answer for the current question,
     stores it in MongoDB, and returns the next question.
@@ -949,7 +975,7 @@ async def answer_question(req: AnswerRequest):
 
 
 @app.post("/previous-question")
-async def previous_question(req: PreviousQuestionRequest):
+def previous_question(req: PreviousQuestionRequest):
     """
     Go back to the previous question: removes the last recorded answer,
     decrements the question index, and returns that question with the prior answer text.
@@ -997,7 +1023,7 @@ async def previous_question(req: PreviousQuestionRequest):
 # ──────────────────────────────────────────────
 
 @app.get("/get-feedback")
-async def get_feedback(session_id: str):
+def get_feedback(session_id: str):
     """
     Runs Evaluator + Feedback agents on the completed interview data.
     Returns evaluation scores and final career guidance.
@@ -1168,7 +1194,7 @@ async def get_feedback(session_id: str):
 # ──────────────────────────────────────────────
 
 @app.get("/interviews")
-async def list_interviews(user_id: str):
+def list_interviews(user_id: str):
     """
     Returns all interviews for a user with evaluation, feedback, and answers.
     """
@@ -1231,7 +1257,7 @@ async def list_interviews(user_id: str):
 # ──────────────────────────────────────────────
 
 @app.get("/dashboard-data")
-async def dashboard_data(user_id: str):
+def dashboard_data(user_id: str):
     if db is None:
         raise HTTPException(status_code=500, detail="MongoDB not connected")
     
@@ -1289,7 +1315,7 @@ async def dashboard_data(user_id: str):
 # ──────────────────────────────────────────────
 
 @app.get("/interview/{interview_id}")
-async def get_interview_detail(interview_id: str):
+def get_interview_detail(interview_id: str):
     if db is None:
         raise HTTPException(status_code=500, detail="MongoDB not connected")
         
@@ -1334,7 +1360,7 @@ async def get_interview_detail(interview_id: str):
 # ──────────────────────────────────────────────
 
 @app.get("/session-status")
-async def session_status(session_id: str):
+def session_status(session_id: str):
     """Returns the current state of a session (for debugging / frontend sync)."""
     session = _get_session(session_id)
 
@@ -1355,7 +1381,7 @@ async def session_status(session_id: str):
 # ──────────────────────────────────────────────
 
 @app.get("/voice/start-session/{session_id}")
-async def start_voice_session(session_id: str):
+def start_voice_session(session_id: str):
     """
     Retrieves the interview questions for a real session to initiate voice mode.
     """
@@ -1371,7 +1397,7 @@ async def start_voice_session(session_id: str):
 
 
 @app.get("/ai-insights")
-async def get_ai_insights(session_id: str, role: str = "Software Engineer", user_id: str = "demo_user_123"):
+def get_ai_insights(session_id: str, role: str = "Software Engineer", user_id: str = "demo_user_123"):
     """
     Runs the full parallel LangGraph pipeline (ATS scoring, skills gap analysis, project review)
     on the uploaded resume and returns aggregated insights.
@@ -1417,7 +1443,7 @@ async def get_ai_insights(session_id: str, role: str = "Software Engineer", user
 
 
 @app.get("/memory/{user_id}")
-async def get_user_memory(user_id: str):
+def get_user_memory(user_id: str):
     """
     Returns user's long-term memory entries.
     """
@@ -1430,7 +1456,7 @@ async def get_user_memory(user_id: str):
 
 
 @app.delete("/session/{session_id}")
-async def delete_session(session_id: str):
+def delete_session(session_id: str):
     """
     Deletes the in-memory session and cleans up its RAG store.
     """
@@ -1450,7 +1476,7 @@ async def delete_session(session_id: str):
 
 
 @app.get("/score-progression")
-async def score_progression(user_id: str):
+def score_progression(user_id: str):
     """
     Returns a chronological list of (date, score, role) for all completed
     interviews that have a stored evaluation — used to draw the score chart.
@@ -1490,7 +1516,7 @@ async def score_progression(user_id: str):
 
 
 @app.get("/job-recommendations")
-async def job_recommendations(user_id: str, resume_text: str = ""):
+def job_recommendations(user_id: str, resume_text: str = ""):
     """
     Uses the LLM to generate AI-curated job role recommendations based on
     the user's latest resume ATS data and interview history.
@@ -1623,7 +1649,7 @@ Return ONLY the JSON array, no markdown, no explanation."""
 
 
 @app.get("/health")
-async def health_check():
+def health_check():
     """
     Health check endpoint returning status of MongoDB, RAG, and general API.
     """

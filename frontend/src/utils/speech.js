@@ -8,34 +8,76 @@ export function cancelSpeech() {
   }
 }
 
-export function speakText(text) {
-  if (typeof window === 'undefined') return;
-  if (!('speechSynthesis' in window)) return;
+const pickEnglishVoice = () => {
+  const voices = window.speechSynthesis.getVoices?.() || [];
+  return (
+    voices.find((v) => /^en[-_]US/i.test(v.lang) && v.localService) ||
+    voices.find((v) => /^en[-_]US/i.test(v.lang)) ||
+    voices.find((v) => /^en/i.test(v.lang)) ||
+    null
+  );
+};
 
-  const cleaned = String(text ?? '').trim();
-  if (!cleaned) return;
+/**
+ * Speak text with the browser's built-in voice.
+ * Returns false when speech synthesis isn't available.
+ * `onEnd` fires when speaking finishes, fails, or is cancelled.
+ */
+export function speakText(text, { onEnd } = {}) {
+  const done = () => {
+    if (onEnd) onEnd();
+  };
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) {
+    done();
+    return false;
+  }
+
+  const cleaned = String(text ?? '').replace(/[*#`]/g, '').trim();
+  if (!cleaned) {
+    done();
+    return false;
+  }
 
   try {
     cancelSpeech();
 
     const utterance = new SpeechSynthesisUtterance(cleaned);
     utterance.lang = 'en-US';
-    utterance.rate = 1; // natural speed
-    utterance.pitch = 1; // natural pitch
+    utterance.rate = 1;
+    utterance.pitch = 1;
+    const voice = pickEnglishVoice();
+    if (voice) utterance.voice = voice;
 
-    // Try to pick an English voice if available (async in many browsers).
-    const pickVoice = () => {
-      const voices = window.speechSynthesis.getVoices?.() || [];
-      const english = voices.find((v) => String(v.lang || '').toLowerCase().startsWith('en-'));
-      if (english) utterance.voice = english;
+    let finished = false;
+    const finish = () => {
+      if (finished) return;
+      finished = true;
+      done();
     };
+    utterance.onend = finish;
+    utterance.onerror = finish;
 
-    pickVoice();
-    window.speechSynthesis.onvoiceschanged = pickVoice;
+    // Chrome can silently drop an utterance queued right after cancel().
+    setTimeout(() => {
+      window.speechSynthesis.resume?.();
+      window.speechSynthesis.speak(utterance);
+    }, 50);
 
-    window.speechSynthesis.speak(utterance);
+    // Safety net: some browsers never fire onend.
+    const maxMs = Math.max(5000, cleaned.length * 120);
+    setTimeout(finish, maxMs);
+    return true;
   } catch {
-    // No-op: speech is best-effort and can be blocked by browser policies.
+    done();
+    return false;
   }
 }
 
+// Voices load asynchronously in Chrome; warm the list early.
+if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
+  try {
+    window.speechSynthesis.getVoices();
+  } catch {
+    // ignore
+  }
+}
