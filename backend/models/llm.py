@@ -1,4 +1,5 @@
 import os
+import re
 import time
 
 import requests
@@ -12,6 +13,29 @@ GROQ_CHAT_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 class LLMUnavailableError(RuntimeError):
     """Raised when the LLM provider rejects the request (no credits, bad key, ...)."""
+
+
+def _retry_after_seconds(response) -> float:
+    """How long the provider asked us to wait (Retry-After header or 'try again in 22.3s')."""
+    header = response.headers.get("retry-after")
+    if header:
+        try:
+            return float(header)
+        except ValueError:
+            pass
+    match = re.search(r"try again in ([\d.]+)\s*(ms|s)", response.text or "")
+    if match:
+        value = float(match.group(1))
+        return value / 1000 if match.group(2) == "ms" else value
+    return 5.0
+
+
+def _fallback_model(api_url: str) -> str:
+    """Second model with its own rate-limit bucket, used when the main one hits 429."""
+    configured = os.environ.get("LLM_FALLBACK_MODEL")
+    if configured is not None:
+        return configured.strip()
+    return "openai/gpt-oss-20b" if api_url == GROQ_CHAT_URL else ""
 
 
 def _resolve_provider() -> tuple[str, str, str]:
@@ -54,9 +78,11 @@ def generate_text(prompt: str) -> str:
         "max_tokens": 2048,
     }
 
-    max_retries = 3
+    max_retries = 5
     base_delay = 2.0
+    max_wait = float(os.environ.get("LLM_MAX_RATE_LIMIT_WAIT", "30"))
     timeout = int(os.environ.get("LLM_TIMEOUT", "60"))
+    fallback = _fallback_model(api_url)
 
     for attempt in range(max_retries):
         try:
@@ -75,7 +101,17 @@ def generate_text(prompt: str) -> str:
             raise LLMUnavailableError(
                 f"LLM provider rejected the request ({status}): {response.text[:300]}"
             )
-        if status == 429 or status >= 500:
+        if status == 429 and attempt < max_retries - 1:
+            wait = _retry_after_seconds(response)
+            if fallback and payload["model"] != fallback:
+                print(f"[LLM] {payload['model']} rate-limited; switching to {fallback}.")
+                payload["model"] = fallback
+                continue
+            wait = min(max(wait, 1.0), max_wait)
+            print(f"[LLM] Rate limited. Waiting {wait:.1f}s ({attempt + 1}/{max_retries})...")
+            time.sleep(wait)
+            continue
+        if status >= 500:
             if attempt < max_retries - 1:
                 delay = base_delay * (2 ** attempt)
                 print(f"[LLM] Error {status}. Retrying in {delay}s ({attempt + 1}/{max_retries})...")
